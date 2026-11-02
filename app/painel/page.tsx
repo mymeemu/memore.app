@@ -1,6 +1,7 @@
 
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import MemorePet from "@/components/MemorePet";
 import {
   Sparkles, Heart, Zap, Trophy, Brain, Home, Users,
   PawPrint, Shirt, ShoppingBag, Target, Medal,
@@ -187,7 +188,12 @@ export default async function PainelPage() {
           <div className="pet-visual">
             <div className="pet-glow" />
             <div className="pet-stars">✦　·　✧</div>
-            <div className="pet-character">🐣</div>
+            <MemorePet
+  name={pet?.name ?? "Memorex"}
+  level={level}
+  energy={energy}
+  evolutionPath={pet?.evolution_path ?? "balanced"}
+/>
             <div className="pet-shadow" />
             <div className="pet-caption">SEU PRIMEIRO COMPANHEIRO</div>
           </div>
