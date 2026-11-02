@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import MemorePet from "@/components/MemorePet";
+import EnergyCard from "./energy-card";
 import {
   Sparkles, Heart, Zap, Trophy, Brain, Home, Users,
   PawPrint, Shirt, ShoppingBag, Target, Medal,
