@@ -143,8 +143,16 @@ export default async function PainelPage() {
         </section>
 
         <section className="stats-grid">
-         <EnergyCard initialEnergy={energy} />
+        <EnergyCard initialEnergy={energy} />
+
+          <StatCard
             icon={<Star size={21} />}
+            label="EXPERIÊNCIA"
+            value={`${totalXp} XP`}
+            detail="Sua jornada acumulada"
+            color="purple"
+            percent={Math.min(100, totalXp % 100)}
+          />
             label="EXPERIÊNCIA"
             value={`${totalXp} XP`}
             detail="Sua jornada acumulada"
