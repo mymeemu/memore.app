@@ -4,7 +4,13 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Camera, Upload, CheckCircle2, Sparkles } from "lucide-react";
+import {
+  ArrowLeft,
+  Camera,
+  Upload,
+  CheckCircle2,
+  Sparkles,
+} from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 const ACTIVITY_TYPES = [
@@ -73,11 +79,13 @@ export default function ActivitiesPage() {
 
     try {
       const supabase = createClient();
-      const extension = file.type === "image/png"
-        ? "png"
-        : file.type === "image/webp"
-          ? "webp"
-          : "jpg";
+
+      const extension =
+        file.type === "image/png"
+          ? "png"
+          : file.type === "image/webp"
+            ? "webp"
+            : "jpg";
 
       const path = `${userId}/${crypto.randomUUID()}.${extension}`;
 
@@ -101,8 +109,61 @@ export default function ActivitiesPage() {
 
       if (submitError) throw submitError;
 
-      setSuccess(true);
-      setMessage("Atividade enviada! Ela está aguardando validação.");
+      // Localiza a atividade criada pelo caminho único da imagem.
+      const { data: savedActivity, error: lookupError } = await supabase
+        .from("activities_log")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("proof_url", path)
+        .maybeSingle();
+
+      if (lookupError || !savedActivity) {
+        setSuccess(true);
+        setMessage(
+          "Atividade enviada! Ela continua pendente; não foi possível iniciar a análise automática."
+        );
+      } else {
+        try {
+          const analysisResponse = await fetch("/api/vision/analyze", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              activityId: savedActivity.id,
+            }),
+          });
+
+          const analysisResult = await analysisResponse.json();
+
+          if (!analysisResponse.ok || !analysisResult.success) {
+            throw new Error(
+              analysisResult.error || "Análise indisponível."
+            );
+          }
+
+          const verdictLabels: Record<string, string> = {
+            consistent: "Imagem visualmente compatível",
+            unclear: "Evidência inconclusiva",
+            inconsistent: "Imagem aparentemente incompatível",
+          };
+
+          const verdict =
+            verdictLabels[analysisResult.analysis?.verdict] ??
+            "Análise preliminar concluída";
+
+          setSuccess(true);
+          setMessage(
+            `Atividade enviada! MEMORE VISION: ${verdict}. Ela continua aguardando aprovação.`
+          );
+        } catch {
+          setSuccess(true);
+          setMessage(
+            "Atividade enviada! A análise automática não foi concluída; sua atividade continua pendente."
+          );
+        }
+      }
+
       setTitle("");
       setFile(null);
 
@@ -113,6 +174,7 @@ export default function ActivitiesPage() {
       if (input) input.value = "";
     } catch (error) {
       console.error("Erro ao enviar atividade:", error);
+
       setMessage(
         error instanceof Error
           ? error.message
@@ -143,8 +205,13 @@ export default function ActivitiesPage() {
           <div style={styles.icon}>
             <Sparkles size={25} />
           </div>
-          <span style={styles.eyebrow}>SUA JORNADA DE EVOLUÇÃO</span>
+
+          <span style={styles.eyebrow}>
+            SUA JORNADA DE EVOLUÇÃO
+          </span>
+
           <h1>Registrar atividade</h1>
+
           <p>
             Cada pequeno hábito é um passo para evoluir você e seu companheiro.
           </p>
@@ -188,8 +255,11 @@ export default function ActivitiesPage() {
 
           <label htmlFor="activity-proof" style={styles.upload}>
             <Camera size={29} />
-            <strong>{file ? file.name : "Escolher uma foto"}</strong>
+            <strong>
+              {file ? file.name : "Escolher uma foto"}
+            </strong>
             <span>JPG, PNG ou WEBP · Máximo 5 MB</span>
+
             <input
               id="activity-proof"
               type="file"
@@ -204,8 +274,9 @@ export default function ActivitiesPage() {
           <div style={styles.notice}>
             <Sparkles size={17} />
             <span>
-              Sua atividade será analisada. Energia e XP só serão
-              atualizados depois da aprovação.
+              O MEMORE VISION analisará visualmente sua evidência.
+              A análise é preliminar: XP e energia só serão atualizados
+              após uma aprovação posterior.
             </span>
           </div>
 
@@ -222,9 +293,16 @@ export default function ActivitiesPage() {
             </div>
           )}
 
-          <button type="submit" disabled={loading} style={styles.button}>
+          <button
+            type="submit"
+            disabled={loading}
+            style={{
+              ...styles.button,
+              opacity: loading ? 0.65 : 1,
+            }}
+          >
             <Upload size={18} />
-            {loading ? "Enviando..." : "Enviar atividade"}
+            {loading ? "Enviando e analisando..." : "Enviar atividade"}
           </button>
         </form>
       </div>
@@ -361,4 +439,3 @@ const styles: Record<string, React.CSSProperties> = {
     marginTop: "8px",
   },
 };
-
