@@ -143,15 +143,7 @@ export default async function PainelPage() {
         </section>
 
         <section className="stats-grid">
-          <StatCard
-            icon={<Zap size={21} />}
-            label="ENERGIA"
-            value={`${energy}/30`}
-            detail="Disponível hoje"
-            color="yellow"
-            percent={(energy / 30) * 100}
-          />
-          <StatCard
+         <EnergyCard initialEnergy={energy} />
             icon={<Star size={21} />}
             label="EXPERIÊNCIA"
             value={`${totalXp} XP`}
