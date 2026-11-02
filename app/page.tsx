@@ -26,9 +26,9 @@ export default function Home() {
               Como funciona
             </a>
 
-            <a href="#comecar" className="nav-button">
-              Começar agora
-            </a>
+            <a href="/entrar" className="nav-button">
+            Começar agora
+           </a>
           </nav>
 
           <div className="hero-content">
@@ -50,9 +50,9 @@ export default function Home() {
               </p>
 
               <div className="hero-actions" id="comecar">
-                <a href="#funcionalidades" className="primary-button">
-                  Descobrir o MEMORE
-                  <ArrowRight size={19} />
+                <a href="/entrar" className="primary-button">
+                Descobrir o MEMORE
+                 <ArrowRight size={19} />
                 </a>
 
                 <a href="#funcionalidades" className="secondary-button">
