@@ -142,8 +142,8 @@ export default async function PainelPage() {
           </div>
         </section>
 
-        <section className="stats-grid">
-        <EnergyCard initialEnergy={energy} />
+                <section className="stats-grid">
+          <EnergyCard initialEnergy={energy} />
 
           <StatCard
             icon={<Star size={21} />}
@@ -153,12 +153,7 @@ export default async function PainelPage() {
             color="purple"
             percent={Math.min(100, totalXp % 100)}
           />
-            label="EXPERIÊNCIA"
-            value={`${totalXp} XP`}
-            detail="Sua jornada acumulada"
-            color="purple"
-            percent={Math.min(100, totalXp % 100)}
-          />
+
           <StatCard
             icon={<Brain size={21} />}
             label="NÍVEL DO PET"
@@ -167,6 +162,7 @@ export default async function PainelPage() {
             color="pink"
             percent={progress}
           />
+
           <StatCard
             icon={<Flame size={21} />}
             label="XP DA SEMANA"
