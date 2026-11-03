@@ -7,7 +7,7 @@ import {
   Sparkles, Heart, Zap, Trophy, Brain, Home, Users,
   PawPrint, Shirt, ShoppingBag, Target, Medal,
   Settings, ChevronRight, Star, Flame, Gift, Lock,
-  ArrowUpRight, Crown
+  ArrowUpRight, Crown, Camera
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import SairButton from "./sair-button";
@@ -55,15 +55,16 @@ export default async function PainelPage() {
   const progress = Math.min(100, (xp % 100));
 
   const menu = [
-    { label: "Início", icon: Home, href: "#inicio", active: true },
-    { label: "Amigos", icon: Users, href: "#amigos" },
-    { label: "Ranking", icon: Trophy, href: "#ranking" },
-    { label: "Meus pets", icon: PawPrint, href: "#pets" },
-    { label: "Personalização", icon: Shirt, href: "#skins" },
-    { label: "Loja", icon: ShoppingBag, href: "#loja" },
-    { label: "Missões", icon: Target, href: "#missoes" },
-    { label: "Conquistas", icon: Medal, href: "#conquistas" }
-  ];
+  { label: "Início", icon: Home, href: "#inicio", active: true },
+  { label: "Registrar atividade", icon: Camera, href: "/painel/atividades" },
+  { label: "Amigos", icon: Users, href: "#amigos" },
+  { label: "Ranking", icon: Trophy, href: "#ranking" },
+  { label: "Meus pets", icon: PawPrint, href: "#pets" },
+  { label: "Personalização", icon: Shirt, href: "#skins" },
+  { label: "Loja", icon: ShoppingBag, href: "#loja" },
+  { label: "Missões", icon: Target, href: "#missoes" },
+  { label: "Conquistas", icon: Medal, href: "#conquistas" }
+];
 
   return (
     <main className="memore-shell">
@@ -172,7 +173,35 @@ export default async function PainelPage() {
             percent={Math.min(100, weeklyXp % 100)}
           />
         </section>
-
+<Link
+  href="/painel/atividades"
+  style={{
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 15,
+    padding: "19px 22px",
+    marginBottom: 32,
+    borderRadius: 17,
+    background: "linear-gradient(110deg,#8257ff,#b16cff)",
+    color: "#fff",
+    textDecoration: "none",
+    boxShadow: "0 5px 0 #6843d8",
+  }}
+>
+  <div style={{ display: "flex", alignItems: "center", gap: 13 }}>
+    <Camera size={25} />
+    <div>
+      <strong style={{ display: "block", fontSize: 14 }}>
+        Registrar atividade
+      </strong>
+      <span style={{ fontSize: 11, opacity: 0.9 }}>
+        Envie suas evidências e evolua seu companheiro.
+      </span>
+    </div>
+  </div>
+  <ChevronRight size={21} />
+</Link>
         <div className="section-heading">
           <div>
             <span className="eyebrow">SEU MELHOR AMIGO</span>
