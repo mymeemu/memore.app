@@ -5,6 +5,8 @@ import { createClient } from "@/lib/supabase/server";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+const AI_MODEL = "gemini-2.5-flash";
+
 type VisionResult = {
   verdict: "consistent" | "unclear" | "inconsistent";
   confidence: number;
@@ -17,6 +19,15 @@ function jsonError(message: string, status: number) {
     { success: false, error: message },
     { status }
   );
+}
+
+function logVisionError(stage: string, error: unknown) {
+  const message =
+    error instanceof Error ? error.message : String(error);
+
+  console.error(`[MEMORE VISION] Falha na etapa: ${stage}`, {
+    message: message.slice(0, 1000),
+  });
 }
 
 function parseVisionResult(raw: string): VisionResult {
@@ -50,6 +61,7 @@ export async function POST(request: Request) {
   const apiKey = process.env.GEMINI_API_KEY;
 
   if (!apiKey) {
+    console.error("[MEMORE VISION] GEMINI_API_KEY não configurada.");
     return jsonError("A chave do Gemini não está configurada.", 503);
   }
 
@@ -70,12 +82,23 @@ export async function POST(request: Request) {
     return jsonError("Identificador de atividade inválido.", 400);
   }
 
-  const supabase = createClient();
+  let supabase;
+
+  try {
+    supabase = createClient();
+  } catch (error) {
+    logVisionError("configuração do Supabase", error);
+    return jsonError("Não foi possível conectar ao serviço.", 500);
+  }
 
   const { data: authData, error: authError } =
     await supabase.auth.getUser();
 
   if (authError || !authData.user) {
+    logVisionError(
+      "autenticação",
+      authError ?? new Error("Usuário não autenticado.")
+    );
     return jsonError("Você precisa entrar na sua conta.", 401);
   }
 
@@ -88,6 +111,10 @@ export async function POST(request: Request) {
     .maybeSingle();
 
   if (activityError || !activity) {
+    logVisionError(
+      "consulta da atividade",
+      activityError ?? new Error("Atividade não encontrada.")
+    );
     return jsonError("Atividade não encontrada.", 404);
   }
 
@@ -102,6 +129,7 @@ export async function POST(request: Request) {
   );
 
   if (claimError) {
+    logVisionError("bloqueio da análise", claimError);
     return jsonError("Não foi possível iniciar a análise.", 500);
   }
 
@@ -119,13 +147,25 @@ export async function POST(request: Request) {
       .download(activity.proof_url);
 
   if (downloadError || !imageFile) {
-    await supabase.rpc("memore_save_vision_analysis", {
-      p_activity_id: activity.id,
-      p_ai_model: "gemini-2.5-flash",
-      p_ai_confidence: null,
-      p_ai_feedback: "Não foi possível acessar a imagem.",
-      p_ai_error: downloadError?.message ?? "Imagem indisponível.",
-    });
+    const errorMessage =
+      downloadError?.message ?? "Imagem indisponível.";
+
+    logVisionError("download da imagem", errorMessage);
+
+    const { error: saveError } = await supabase.rpc(
+      "memore_save_vision_analysis",
+      {
+        p_activity_id: activity.id,
+        p_ai_model: AI_MODEL,
+        p_ai_confidence: null,
+        p_ai_feedback: "Não foi possível acessar a imagem.",
+        p_ai_error: errorMessage,
+      }
+    );
+
+    if (saveError) {
+      logVisionError("salvamento do erro de imagem", saveError);
+    }
 
     return jsonError("Não foi possível acessar a imagem.", 500);
   }
@@ -133,13 +173,20 @@ export async function POST(request: Request) {
   const mimeType = imageFile.type;
 
   if (!["image/jpeg", "image/png", "image/webp"].includes(mimeType)) {
-    await supabase.rpc("memore_save_vision_analysis", {
-      p_activity_id: activity.id,
-      p_ai_model: "gemini-2.5-flash",
-      p_ai_confidence: null,
-      p_ai_feedback: "Formato de imagem não suportado.",
-      p_ai_error: "Formato inválido.",
-    });
+    const { error: saveError } = await supabase.rpc(
+      "memore_save_vision_analysis",
+      {
+        p_activity_id: activity.id,
+        p_ai_model: AI_MODEL,
+        p_ai_confidence: null,
+        p_ai_feedback: "Formato de imagem não suportado.",
+        p_ai_error: "Formato inválido.",
+      }
+    );
+
+    if (saveError) {
+      logVisionError("salvamento do erro de formato", saveError);
+    }
 
     return jsonError("Formato de imagem não suportado.", 415);
   }
@@ -179,7 +226,7 @@ Regras:
 
   try {
     const geminiResponse = await fetch(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+      `https://generativelanguage.googleapis.com/v1beta/models/${AI_MODEL}:generateContent`,
       {
         method: "POST",
         headers: {
@@ -224,23 +271,37 @@ Regras:
       .join("");
 
     if (!rawText) {
-      throw new Error("O Gemini não retornou conteúdo.");
+      const reason =
+        result?.promptFeedback?.blockReason ??
+        result?.candidates?.[0]?.finishReason ??
+        "Resposta vazia.";
+
+      throw new Error(`Gemini sem conteúdo utilizável: ${reason}`);
     }
 
     vision = parseVisionResult(rawText);
   } catch (error) {
+    logVisionError("análise Gemini", error);
+
     const errorMessage =
       error instanceof Error
         ? error.message
         : "Falha desconhecida na análise.";
 
-    await supabase.rpc("memore_save_vision_analysis", {
-      p_activity_id: activity.id,
-      p_ai_model: "gemini-2.5-flash",
-      p_ai_confidence: null,
-      p_ai_feedback: "A análise não foi concluída.",
-      p_ai_error: errorMessage.slice(0, 1000),
-    });
+    const { error: saveError } = await supabase.rpc(
+      "memore_save_vision_analysis",
+      {
+        p_activity_id: activity.id,
+        p_ai_model: AI_MODEL,
+        p_ai_confidence: null,
+        p_ai_feedback: "A análise não foi concluída.",
+        p_ai_error: errorMessage.slice(0, 1000),
+      }
+    );
+
+    if (saveError) {
+      logVisionError("salvamento do erro Gemini", saveError);
+    }
 
     return jsonError(
       "O MEMORE VISION não conseguiu concluir a análise. Tente novamente mais tarde.",
@@ -258,7 +319,7 @@ Regras:
     "memore_save_vision_analysis",
     {
       p_activity_id: activity.id,
-      p_ai_model: "gemini-2.5-flash",
+      p_ai_model: AI_MODEL,
       p_ai_confidence: vision.confidence,
       p_ai_feedback: feedback,
       p_ai_error: null,
@@ -266,6 +327,8 @@ Regras:
   );
 
   if (saveError) {
+    logVisionError("salvamento da análise concluída", saveError);
+
     return jsonError(
       "A análise foi feita, mas não foi possível salvar o resultado.",
       500
@@ -275,7 +338,7 @@ Regras:
   return NextResponse.json({
     success: true,
     status: "preliminary_analysis",
-    model: "gemini-2.5-flash",
+    model: AI_MODEL,
     analysis: vision,
     message:
       "Análise visual preliminar concluída. Nenhuma aprovação, XP ou energia foi concedida.",
